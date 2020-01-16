@@ -13,4 +13,4 @@ directories = "2.0"
 hostname = "0.3"
 lettre = "0.9"
 lettre_email = "0.9"
-mmrs = {git = "https://github.com/deg4uss3r/mmrs"}
+mmrs = "0.1"
