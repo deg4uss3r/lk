@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::{exit, Command, Stdio};
 
 use confy;
-use directories::BaseDirs;
+use directories::{BaseDirs, ProjectDirs};
 use hostname::get;
 use lettre::smtp::authentication::Credentials;
 use lettre::{SmtpClient, Transport};
@@ -54,14 +54,16 @@ fn main() {
 
     let proj_config = BaseDirs::new().expect("Error could not determine home directory");
     let config_dir = proj_config.config_dir();
+    let proj_dir = ProjectDirs::from("rs", "lk", "lk").expect("Error could not determine the project directory");
 
     if !Path::is_file(Path::new(&format!(
-        "{}/rs.LK.LK/LK.toml",
-        config_dir.display()
+        "{}/{}/LK.toml",
+        config_dir.display(),
+        proj_dir.project_path().display()
     ))) {
         let cfg: LKConfig = LKConfig::default();
         confy::store("LK", cfg).expect("Error saving config file");
-        println!("\nError: Configuration did not exist, please update {}{} with your settings and auth tokens...exiting\n\n", config_dir.display(), "/rs.LK.LK/LK.toml");
+        println!("\nError: Configuration did not exist, please update {}/{}/{} with your settings and auth tokens...exiting\n\n", config_dir.display(), proj_dir.project_path().display(), "LK.toml");
         exit(2);
     }
 
@@ -70,16 +72,18 @@ fn main() {
         .into_string()
         .expect("Error converting hostname to string");
     let config: LKConfig = confy::load("LK").expect(&format!(
-        "Error could not load config for LK from {}{}",
+        "Error could not load config for LK from {}/{}/{}",
         config_dir.display(),
-        "/rs.LK.LK/LK.toml"
+        proj_dir.project_path().display(),
+        "LK.toml"
     ));
 
     if config.services == LKConfig::default().services || config.services.is_empty() {
         println!(
-            "\nError: default account found, please update {}{} with your settings...exiting\n\n",
+            "\nError: default account found, please update {}/{}/{} with your settings...exiting\n\n",
             config_dir.display(),
-            "/rs.LK.LK/LK.toml"
+            proj_dir.project_path().display(),
+            "LK.toml"
         );
         exit(3);
     }
@@ -112,7 +116,7 @@ fn main() {
             || config.twilio_receiver == LKConfig::default().twilio_receiver
             || config.twilio_sender == LKConfig::default().twilio_sender
         {
-            println!("Error found default values in twilio fields, please update the config file at {}{}", config_dir.display(), "/rs.LK.LK/LK.toml");
+            println!("Error found default values in twilio fields, please update the config file at {}/{}/{}", config_dir.display(), proj_dir.project_path().display(), "LK.toml");
             exit(4);
         }
 
@@ -157,9 +161,10 @@ fn main() {
             || config.email_smtp == LKConfig::default().email_smtp
         {
             println!(
-                "Error found default values in email fields, please update the config file at {}{}",
+                "Error found default values in email fields, please update the config file at {}/{}/{}",
                 config_dir.display(),
-                "/rs.LK.LK/LK.toml"
+                proj_dir.project_path().display(),
+                "LK.toml"
             );
             exit(5);
         }
@@ -227,9 +232,10 @@ fn main() {
             || config.mattermost_channel == LKConfig::default().mattermost_channel
         {
             println!(
-                "Error found default values in email fields, please update the config file at {}{}",
+                "Error found default values in email fields, please update the config file at {}/{}/{}",
                 config_dir.display(),
-                "/rs.LK.LK/LK.toml"
+                proj_dir.project_path().display(),
+                "LK.toml"
             );
             exit(6);
         }
@@ -285,14 +291,12 @@ fn main() {
             Notification::new()
                 .summary(&format!("Your job on {} finished successfully!", &hostname))
                 .body("Woo! 🎉")
-                .icon("")
                 .show()
                 .expect("Error: Could not show system notification");
         } else {
             Notification::new()
                 .summary(&format!("Your job on {} finished successfully!", &hostname))
                 .body("Boo! 😿")
-                .icon("")
                 .show()
                 .expect("Error: Could not show system notification");
         }
