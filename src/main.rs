@@ -266,21 +266,21 @@ fn main() {
             .to_json()
             .expect("Error converting MatterMost body to json");
 
-        let response = mmrs::send_message(&config.mattermost_url, body.to_string());
+        let response = mmrs::send_message(&config.mattermost_url, body);
 
         match response {
             Ok(code) => {
                 if code == 200 {
                 } else {
                     println!(
-                        "Error sending job status to MatterMost: bad response code: {}\n\n",
+                        "Error sending job status to MatterMost\n\tresponse code: {}\n\n",
                         code
                     );
                     exit(7);
                 }
             }
             Err(e) => {
-                println!("Error: {}\n\n", e);
+                println!("Error within HTTP Request:\n{}\n\n", e);
                 exit(8);
             }
         }
