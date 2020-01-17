@@ -9,6 +9,7 @@ use lettre::smtp::authentication::Credentials;
 use lettre::{SmtpClient, Transport};
 use lettre_email::EmailBuilder;
 use mmrs;
+use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 use twilio::{Client, OutboundMessage};
 
@@ -31,7 +32,7 @@ struct LKConfig {
 impl Default for LKConfig {
     fn default() -> Self {
         LKConfig {
-            services: vec!("Enter services you wish to send through (if blank or with this string the program will exit early) e.g.:".to_string(), "twilio".to_string(), "email".to_string()),
+            services: vec!("Enter services you wish to send through (if blank or with this string the program will exit early) e.g.:".to_string(), "twilio".to_string(), "email".to_string(), "mattermost".to_string(), "system".to_string()),
             twilio_account_id: "account_id from Twilio".to_string(),
             twilio_auth_token: "auth_token from Twilio".to_string(),
             twilio_sender: "Enter the number provided by Twilio".to_string(),
@@ -279,5 +280,22 @@ fn main() {
         }
     }
 
+    if config.services.contains(&"system".to_string()) {
+        if output.status.success() {
+            Notification::new()
+                .summary(&format!("Your job on {} finished successfully!", &hostname))
+                .body("Woo! 🎉")
+                .icon("")
+                .show()
+                .expect("Error: Could not show system notification");
+        } else {
+            Notification::new()
+                .summary(&format!("Your job on {} finished successfully!", &hostname))
+                .body("Boo! 😿")
+                .icon("")
+                .show()
+                .expect("Error: Could not show system notification");
+        }
+    }
     //Check for other services here once added (IRC, ???)
 }
