@@ -1,6 +1,6 @@
 use std::env::{args_os, var};
 use std::path::Path;
-use std::process::{exit, Command, Stdio};
+use std::process::{exit, Command};
 
 use confy;
 use directories::{BaseDirs, ProjectDirs};
@@ -11,7 +11,7 @@ use lettre_email::EmailBuilder;
 use mmrs;
 use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
-use twilio::{Client, OutboundMessage};
+use twrs_sms;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct LKConfig {
@@ -94,14 +94,13 @@ fn main() {
     }
 
     let split_process_names: Vec<&str> = process_args.splitn(2, "lk ").collect();
-
+    
     //Grab the $SHELL variable, if unreachable assume bash
     let shell = var("SHELL").unwrap_or("/bin/bash".to_string());
 
     let child_process = Command::new(shell)
         .arg("-c")
         .arg(split_process_names[1])
-        .stdout(Stdio::piped())
         .spawn()
         .expect("Command failed to start");
 
@@ -120,35 +119,46 @@ fn main() {
             exit(4);
         }
 
-        let client = Client::new(&config.twilio_account_id, &config.twilio_auth_token);
-
         if output.status.success() {
-            client
-                .send_message(OutboundMessage::new(
-                    &config.twilio_sender,
-                    &config.twilio_receiver,
+                let sms = twrs_sms::TwilioSend {
+                    To: &config.twilio_receiver,
+                    From: &config.twilio_sender,
+                    Body:
                     &format!(
-                        "Your command {} on {} exited successfully!!",
+                        "Your command {} on {} exited successfully!  🎉",
                         &split_process_names[1], &hostname
                     ),
-                ))
-                .expect("Error sending success message to Twilio API");
+                }
+                .encode()
+                .expect("Error encoding success message to URLEncoded string");
+
+                let t = twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
+                    .expect("Error sending success message to Twilio API");
+
+                if t.status().is_server_error() || t.status().is_client_error() {
+                    println!("Error sending to Twilio API: {}", t.status());
+                    exit(5);
+                }
         } else {
-            client
-                .send_message(OutboundMessage::new(
-                    &config.twilio_sender,
-                    &config.twilio_receiver,
-                    &format!(
-                        "Your command {} on {} exited with an error ({})",
+            let sms = twrs_sms::TwilioSend {
+                    To: &config.twilio_receiver,
+                    From: &config.twilio_sender,
+                    Body: &format!(
+                        "Your command {} on {} failed! 😿",
                         &split_process_names[1],
-                        &hostname,
-                        output
-                            .status
-                            .code()
-                            .expect("Error getting status code from command")
-                    ),
-                ))
+                        &hostname
+                    )
+            }
+                .encode()
+                .expect("Error encoding success message to URLEncoded string");
+                
+            let t = twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
                 .expect("Error sending failure message to Twilio API");
+
+            if t.status().is_server_error() || t.status().is_client_error() {
+                println!("Error sending to Twilio API: {}", t.status());
+                exit(5);
+            }
         }
     }
 
@@ -182,7 +192,7 @@ fn main() {
                     )
                     .to_string(),
                 )
-                .subject(format!("Your job on {} has completed!", &hostname).to_string())
+                .subject(format!("Your command {} on {} has exited successfully!  🎉", &split_process_names[1], &hostname).to_string())
                 .build()
                 .expect("Error building email struct");
 
@@ -208,7 +218,7 @@ fn main() {
                     )
                     .to_string(),
                 )
-                .subject(format!("Your job on {} has failed!", &hostname).to_string())
+                .subject(format!("Your command {}  on {} has failed! 😿", &split_process_names[1], &hostname).to_string())
                 .build()
                 .expect("Error building email struct");
 
@@ -243,20 +253,18 @@ fn main() {
         let mut message: mmrs::MMBody = mmrs::MMBody::new();
 
         message.username = Some("LK".to_string());
-        message.icon_url = Some(
-            "https://i0.wp.com/stephenkneale.com/wp-content/uploads/2019/11/Knowledge20Head.png"
-                .to_string(),
-        );
         message.channel = Some(config.mattermost_channel);
 
         if output.status.success() {
             message.text = Some(format!(
-                "Your job on {} has finished successfully!",
+                "Your command {} on {} has exited successfully! 🎉",
+                &split_process_names[1],
                 &hostname
             ));
         } else {
             message.text = Some(format!(
-                "Your job on {} has failed, here's the output of stderr:\n\n{}",
+                "Your command {} on {} has failed 😿, here's the output of stderr:\n\n{}",
+                &split_process_names[1], 
                 &hostname,
                 String::from_utf8_lossy(&output.stderr)
             ));
@@ -289,7 +297,7 @@ fn main() {
     if config.services.contains(&"system".to_string()) {
         if output.status.success() {
             Notification::new()
-                .summary(&format!("Your job on {} finished successfully!", &hostname))
+                .summary(&format!("Your command {} on {} finished successfully!", &split_process_names[1], &hostname))
                 .body("Woo! 🎉")
                 .show()
                 .expect("Error: Could not show system notification");
@@ -301,5 +309,5 @@ fn main() {
                 .expect("Error: Could not show system notification");
         }
     }
-    //Check for other services here once added (IRC, ???)
+    //Check for other services here
 }

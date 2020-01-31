@@ -5,7 +5,7 @@ authors = ["Ricky (Degausser) <Ricky@Hosfelt.io>"]
 edition = "2018"
 
 [dependencies]
-twilio = "0.1"
+twrs-sms = "0.1"
 confy = "0.3"
 serde = {version = "1.0", features = ["derive"]}
 serde_derive = "1.0"
