@@ -1,14 +1,18 @@
 [package]
-name = "lk"
+name = "lemme-know"
 version = "0.1.1"
 authors = ["Ricky (Degausser) <Ricky@Hosfe.lt>"]
 edition = "2024"
-keywords = ["cli", "tool", "tooling", "unix", "terminal", "watch", "productivity"]
+keywords = ["cli", "tool", "tooling", "unix", "productivity"]
 description = "Simple program to run commands and get notified when they finish"
 homepage = "https://github.com/deg4uss3r/lk"
 repository = "https://github.com/deg4uss3r/lk"
 readme = "README.md"
 license-file = "LICENSE"
+
+[[bin]]
+name = "lk"
+path = "src/main.rs"
 
 [dependencies]
 twrs-sms = "0.1.1"

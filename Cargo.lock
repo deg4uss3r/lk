@@ -1060,6 +1060,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "lemme-know"
+version = "0.1.1"
+dependencies = [
+ "confy",
+ "directories",
+ "hostname",
+ "lettre",
+ "mmrs",
+ "notify-rust",
+ "serde",
+ "serde_derive",
+ "twrs-sms",
+]
+
+[[package]]
 name = "lettre"
 version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1111,21 +1126,6 @@ name = "litemap"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
-
-[[package]]
-name = "lk"
-version = "0.1.1"
-dependencies = [
- "confy",
- "directories",
- "hostname",
- "lettre",
- "mmrs",
- "notify-rust",
- "serde",
- "serde_derive",
- "twrs-sms",
-]
 
 [[package]]
 name = "lock_api"
