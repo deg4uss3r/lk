@@ -1,13 +1,14 @@
 use std::env::{args_os, var};
 use std::path::Path;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 use confy;
 use directories::{BaseDirs, ProjectDirs};
 use hostname::get;
-use lettre::smtp::authentication::Credentials;
-use lettre::{SmtpClient, Transport};
-use lettre_email::EmailBuilder;
+use lettre::{
+    Message, SmtpTransport, Transport, message::Mailbox,
+    transport::smtp::authentication::Credentials,
+};
 use mmrs;
 use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
@@ -54,7 +55,8 @@ fn main() {
 
     let proj_config = BaseDirs::new().expect("Error could not determine home directory");
     let config_dir = proj_config.config_dir();
-    let proj_dir = ProjectDirs::from("rs", "lk", "lk").expect("Error could not determine the project directory");
+    let proj_dir = ProjectDirs::from("rs", "lk", "lk")
+        .expect("Error could not determine the project directory");
 
     if !Path::is_file(Path::new(&format!(
         "{}/{}/LK.toml",
@@ -62,8 +64,13 @@ fn main() {
         proj_dir.project_path().display()
     ))) {
         let cfg: LKConfig = LKConfig::default();
-        confy::store("LK", cfg).expect("Error saving config file");
-        println!("\nError: Configuration did not exist, please update {}/{}/{} with your settings and auth tokens...exiting\n\n", config_dir.display(), proj_dir.project_path().display(), "LK.toml");
+        confy::store("LK", None, cfg).expect("Error saving config file");
+        println!(
+            "\nError: Configuration did not exist, please update {}/{}/{} with your settings and auth tokens...exiting\n\n",
+            config_dir.display(),
+            proj_dir.project_path().display(),
+            "LK.toml"
+        );
         exit(2);
     }
 
@@ -71,7 +78,7 @@ fn main() {
         .unwrap_or(std::ffi::OsString::from("HOSTNAME_NOT_FOUND"))
         .into_string()
         .expect("Error converting hostname to string");
-    let config: LKConfig = confy::load("LK").expect(&format!(
+    let config: LKConfig = confy::load("LK", None).expect(&format!(
         "Error could not load config for LK from {}/{}/{}",
         config_dir.display(),
         proj_dir.project_path().display(),
@@ -94,7 +101,7 @@ fn main() {
     }
 
     let split_process_names: Vec<&str> = process_args.splitn(2, "lk ").collect();
-    
+
     //Grab the $SHELL variable, if unreachable assume bash
     let shell = var("SHELL").unwrap_or("/bin/bash".to_string());
 
@@ -115,45 +122,50 @@ fn main() {
             || config.twilio_receiver == LKConfig::default().twilio_receiver
             || config.twilio_sender == LKConfig::default().twilio_sender
         {
-            println!("Error found default values in twilio fields, please update the config file at {}/{}/{}", config_dir.display(), proj_dir.project_path().display(), "LK.toml");
+            println!(
+                "Error found default values in twilio fields, please update the config file at {}/{}/{}",
+                config_dir.display(),
+                proj_dir.project_path().display(),
+                "LK.toml"
+            );
             exit(4);
         }
 
         if output.status.success() {
-                let sms = twrs_sms::TwilioSend {
-                    To: &config.twilio_receiver,
-                    From: &config.twilio_sender,
-                    Body:
-                    &format!(
-                        "Your command {} on {} exited successfully!  🎉",
-                        &split_process_names[1], &hostname
-                    ),
-                }
-                .encode()
-                .expect("Error encoding success message to URLEncoded string");
+            let sms = twrs_sms::TwilioSend {
+                To: &config.twilio_receiver,
+                From: &config.twilio_sender,
+                Body: &format!(
+                    "Your command {} on {} exited successfully!  🎉",
+                    &split_process_names[1], &hostname
+                ),
+            }
+            .encode()
+            .expect("Error encoding success message to URLEncoded string");
 
-                let t = twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
+            let t =
+                twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
                     .expect("Error sending success message to Twilio API");
 
-                if t.status().is_server_error() || t.status().is_client_error() {
-                    println!("Error sending to Twilio API: {}", t.status());
-                    exit(5);
-                }
+            if t.status().is_server_error() || t.status().is_client_error() {
+                println!("Error sending to Twilio API: {}", t.status());
+                exit(5);
+            }
         } else {
             let sms = twrs_sms::TwilioSend {
-                    To: &config.twilio_receiver,
-                    From: &config.twilio_sender,
-                    Body: &format!(
-                        "Your command {} on {} failed! 😿",
-                        &split_process_names[1],
-                        &hostname
-                    )
+                To: &config.twilio_receiver,
+                From: &config.twilio_sender,
+                Body: &format!(
+                    "Your command {} on {} failed! 😿",
+                    &split_process_names[1], &hostname
+                ),
             }
-                .encode()
-                .expect("Error encoding success message to URLEncoded string");
-                
-            let t = twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
-                .expect("Error sending failure message to Twilio API");
+            .encode()
+            .expect("Error encoding success message to URLEncoded string");
+
+            let t =
+                twrs_sms::send_message(&config.twilio_account_id, &config.twilio_auth_token, sms)
+                    .expect("Error sending failure message to Twilio API");
 
             if t.status().is_server_error() || t.status().is_client_error() {
                 println!("Error sending to Twilio API: {}", t.status());
@@ -182,9 +194,13 @@ fn main() {
         let creds = Credentials::new(config.email_username, config.email_password);
 
         if output.status.success() {
-            let email = EmailBuilder::new()
-                .to(config.email_to)
-                .from(config.email_from)
+            let email = Message::builder()
+                .to(Mailbox::new(None, config.email_to.parse().unwrap()))
+                .from(Mailbox::new(None, config.email_from.parse().unwrap()))
+                .subject(format!(
+                    "Your command {} on {} has exited successfully 🎉",
+                    &split_process_names[1], &hostname
+                ))
                 .body(
                     format!(
                         "Here is the output: \n\n\n{}",
@@ -192,43 +208,43 @@ fn main() {
                     )
                     .to_string(),
                 )
-                .subject(format!("Your command {} on {} has exited successfully!  🎉", &split_process_names[1], &hostname).to_string())
-                .build()
                 .expect("Error building email struct");
 
-            let mut mailer = SmtpClient::new_simple(&config.email_smtp)
+            let mailer = SmtpTransport::relay(&config.email_smtp)
                 .expect("Error opening SMTP connection")
                 .credentials(creds)
-                .transport();
+                .build();
 
             // Send the email
-            let result = mailer.send(email.into());
+            let result = mailer.send(&email);
 
             if !result.is_ok() {
                 println!("Email refused to send: {:?}", result);
             }
         } else {
-            let email = EmailBuilder::new()
-                .to(config.email_to)
-                .from(config.email_from)
+            let email = Message::builder()
+                .to(Mailbox::new(None, config.email_to.parse().unwrap()))
+                .from(Mailbox::new(None, config.email_from.parse().unwrap()))
+                .subject(format!(
+                    "Your command {} on {} has failed failed 😿",
+                    &split_process_names[1], &hostname
+                ))
                 .body(
                     format!(
                         "Here is the output: \n\n\n{}",
-                        String::from_utf8_lossy(&output.stderr)
+                        String::from_utf8_lossy(&output.stdout)
                     )
                     .to_string(),
                 )
-                .subject(format!("Your command {}  on {} has failed! 😿", &split_process_names[1], &hostname).to_string())
-                .build()
                 .expect("Error building email struct");
 
-            let mut mailer = SmtpClient::new_simple(&config.email_smtp)
-                .expect("Error opening STMP connection")
+            let mailer = SmtpTransport::relay(&config.email_smtp)
+                .expect("Error opening SMTP connection")
                 .credentials(creds)
-                .transport();
+                .build();
 
             // Send the email
-            let result = mailer.send(email.into());
+            let result = mailer.send(&email);
 
             if !result.is_ok() {
                 println!("Email refused to send: {:?}", result);
@@ -258,13 +274,12 @@ fn main() {
         if output.status.success() {
             message.text = Some(format!(
                 "Your command {} on {} has exited successfully! 🎉",
-                &split_process_names[1],
-                &hostname
+                &split_process_names[1], &hostname
             ));
         } else {
             message.text = Some(format!(
                 "Your command {} on {} has failed 😿, here's the output of stderr:\n\n{}",
-                &split_process_names[1], 
+                &split_process_names[1],
                 &hostname,
                 String::from_utf8_lossy(&output.stderr)
             ));
@@ -297,7 +312,10 @@ fn main() {
     if config.services.contains(&"system".to_string()) {
         if output.status.success() {
             Notification::new()
-                .summary(&format!("Your command {} on {} finished successfully!", &split_process_names[1], &hostname))
+                .summary(&format!(
+                    "Your command {} on {} finished successfully!",
+                    &split_process_names[1], &hostname
+                ))
                 .body("Woo! 🎉")
                 .show()
                 .expect("Error: Could not show system notification");
