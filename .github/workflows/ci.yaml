@@ -9,13 +9,17 @@ name: CI
 jobs:
   check:
     name: CI Suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         rust:
           - stable
           - beta
           - nightly
+        os: 
+          - ubuntu-latest
+          - macos-latest 
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v6
