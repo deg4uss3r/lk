@@ -2,7 +2,6 @@ use std::env::{args_os, var};
 use std::path::Path;
 use std::process::{Command, exit};
 
-use directories::{BaseDirs, ProjectDirs};
 use hostname::get;
 use lettre::{
     Message, SmtpTransport, Transport, message::Mailbox,
@@ -50,22 +49,16 @@ fn main() {
     let all_args = args_os();
     let mut process_args = String::new();
 
-    let proj_config = BaseDirs::new().expect("Error could not determine home directory");
-    let config_dir = proj_config.config_dir();
-    let proj_dir = ProjectDirs::from("rs", "lk", "lk")
-        .expect("Error could not determine the project directory");
+    //TODO handle error
+    let config_file = confy::get_configuration_file_path("lk", None).unwrap();
 
-    if !Path::is_file(Path::new(&format!(
-        "{}/{}/default-config.toml",
-        config_dir.display(),
-        proj_dir.project_path().display()
-    ))) {
+    if !Path::is_file(&config_file) {
         let cfg: LKConfig = LKConfig::default();
-        confy::store("LK", None, cfg).expect("Error saving config file");
+        confy::store("lk", None, cfg).expect("Error saving config file");
+
         println!(
-            "\nError: Configuration did not exist, please update {}/{}/default-config with your settings and auth tokens...exiting\n\n",
-            config_dir.display(),
-            proj_dir.project_path().display(),
+            "\nError: Configuration did not exist, please update {} with your settings and auth tokens\n\n",
+            config_file.as_path().display()
         );
         exit(2);
     }
@@ -74,19 +67,18 @@ fn main() {
         .unwrap_or(std::ffi::OsString::from("HOSTNAME_NOT_FOUND"))
         .into_string()
         .expect("Error converting hostname to string");
-    let config: LKConfig = confy::load("LK", None).unwrap_or_else(|_| {
+
+    let config: LKConfig = confy::load("lk", None).unwrap_or_else(|_| {
         panic!(
-            "Error could not load config for LK from {}/{}/default-config.toml",
-            config_dir.display(),
-            proj_dir.project_path().display()
+            "Error could not load config for lk from {}",
+            config_file.as_path().display()
         )
     });
 
     if config.services == LKConfig::default().services || config.services.is_empty() {
         println!(
-            "\nError: default account found, please update {}/{}/default-config.toml with your settings...exiting\n\n",
-            config_dir.display(),
-            proj_dir.project_path().display()
+            "\nError: default account found, please update {} with your settings\n\n",
+            config_file.as_path().display()
         );
         exit(3);
     }
@@ -119,9 +111,8 @@ fn main() {
             || config.twilio_sender == LKConfig::default().twilio_sender
         {
             println!(
-                "Error found default values in twilio fields, please update the config file at {}/{}/default-config.toml",
-                config_dir.display(),
-                proj_dir.project_path().display()
+                "Error found default values in twilio fields, please update the config file at {}",
+                config_file.as_path().display()
             );
             exit(4);
         }
@@ -178,9 +169,8 @@ fn main() {
             || config.email_smtp == LKConfig::default().email_smtp
         {
             println!(
-                "Error found default values in email fields, please update the config file at {}/{}/default-config.toml",
-                config_dir.display(),
-                proj_dir.project_path().display()
+                "Error found default values in email fields, please update the config file at {}",
+                config_file.as_path().display()
             );
             exit(5);
         }
@@ -252,9 +242,8 @@ fn main() {
             || config.mattermost_channel == LKConfig::default().mattermost_channel
         {
             println!(
-                "Error found default values in email fields, please update the config file at {}/{}/default-config.toml",
-                config_dir.display(),
-                proj_dir.project_path().display()
+                "Error found default values in email fields, please update the config file at {}",
+                config_file.as_path().display()
             );
             exit(6);
         }
