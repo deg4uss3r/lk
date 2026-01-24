@@ -1,0 +1,43 @@
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+name: deploy
+
+jobs:
+  check:
+    name: CI Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Install Rust 
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Setup Cache
+        uses: Swatinem/rust-cache@v5
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+        shell: bash
+
+      - name: Audit
+        run: cargo audit
+        shell: bash
+
+      - name: Build Release
+        run: cargo build --Release
+        shell: bash
+      
+      - name: Publish
+        run: cargo publish --locked --token ${{ secrets.CratesToken }}
+        shell: bash
