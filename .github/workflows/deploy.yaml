@@ -24,7 +24,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Setup Cache
-        uses: Swatinem/rust-cache@v5
+        uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked

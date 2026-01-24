@@ -14,7 +14,7 @@ jobs:
           - nightly
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v6w
+        uses: actions/checkout@v6
 
       - name: Install Rust 
         uses: dtolnay/rust-toolchain@master
@@ -22,7 +22,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
 
       - name: Setup Cache
-        uses: Swatinem/rust-cache@v5
+        uses: Swatinem/rust-cache@v2
 
       - name: Lint
         run: cargo fmt --all --check
